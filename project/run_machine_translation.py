@@ -18,7 +18,17 @@ from minitorch.cuda_kernel_ops import CudaKernelOps
 
 def get_dataset(dataset_name, model_max_length):
     """
-    Obtrain IWSLT (de-en) dataset.
+    Load and preprocess IWSLT (de-en) dataset.
+    
+    Args:
+        dataset_name (str): Name of the dataset to load
+        model_max_length (int): Maximum sequence length for filtering examples
+
+    Returns:
+        tuple: (dataset, src_key, tgt_key) where:
+            - dataset: Dictionary with 'train', 'validation', 'test' splits
+            - src_key (str): Source language key ('de')
+            - tgt_key (str): Target language key ('en')
     """
     dataset = {
         split: datasets.load_dataset(dataset_name, split=split)['translation']
@@ -45,18 +55,18 @@ def get_dataset(dataset_name, model_max_length):
 
 def get_tokenizer(examples, vocab_size, src_key, tgt_key, workdir):
     """
-    Trains a tokenizer on the provided dataset examples and saves the tokenizer configuration.
-
-    Parameters:
-    - examples: The dataset examples used for training the tokenizer.
-    - vocab_size: The desired vocabulary size for the tokenizer.
-    - src_key: The key used to access the source text within the dataset examples.
-    - tgt_key: The key used to access the target text within the dataset examples.
-    - workdir: The directory where the tokenizer should be saved.
+    Train and save a ByteLevelBPETokenizer on the provided dataset.
+    
+    Args:
+        examples (list): Dataset examples for tokenizer training
+        vocab_size (int): Desired vocabulary size
+        src_key (str): Source language key in examples
+        tgt_key (str): Target language key in examples
+        workdir (str): Directory to save tokenizer files
 
     Returns:
-    - tokenizer: The trained tokenizer with special tokens,
-        e.g., ("<eos_de>", "<eos_en>", "<pad>") if src_key and tgt_key are "de" and "en", respectively.
+        AutoTokenizer: Trained tokenizer with special tokens
+                      (e.g., "<eos_de>", "<eos_en>", "<pad>")
     """
     tokenizer = ByteLevelBPETokenizer()
 
@@ -82,32 +92,26 @@ def get_tokenizer(examples, vocab_size, src_key, tgt_key, workdir):
 def collate_batch(
         examples, src_key, tgt_key, tokenizer, model_max_length, backend):
     """
-    Prepares a batch of examples for model training or evaluation by tokenizing and padding them.
-
-    Parameters:
-    - examples: A list of examples to be processed.
-    - src_key: The key for accessing source texts in the examples.
-    - tgt_key: The key for accessing target texts in the examples.
-    - tokenizer: The tokenizer to be used for encoding the texts.
-    - model_max_length: The maximum sequence length the model can handle.
-    - backend: The backend of minitorch tensors.
+    Prepare a batch of examples for model training or evaluation.
+    
+    Args:
+        examples (list): List of examples to process
+        src_key (str): Key for source texts in examples
+        tgt_key (str): Key for target texts in examples
+        tokenizer (AutoTokenizer): Tokenizer for encoding texts
+        model_max_length (int): Maximum sequence length
+        backend (TensorBackend): Backend for minitorch tensors
 
     Returns:
-    - A dictionary containing keys: 'input_ids', 'labels', 'label_token_weights',
-        each indicates a minitorch tensor with shape (len(examples), model_max_length).
-
-    Notes:
-    ["input_ids"] for every example in the DE-EN translation, the "input_ids" will be:
-        <de_token_ids> + <de_eos_id> + <en_token_ids> + <en_eos_id> + <pad_ids>
-    where the pad_ids makes the length of input_ids to be model_max_length.
-
-    ["labels"]: the next tokens to be predicted, which will be used in the cross-entropy
-    loss function, e.g., for an example tokenized as [a, b, c, d], "input_ids" and "labels" 
-    can be [a, b, c] and [b, c, d], respectively.
-
-    ["label_token_weights"] The 'label_token_weights' are used to differentiate
-    calculation purposes. (the MLE loss is computed on target tokens only.)
-    between the source (weight = 0) and target (weight = 1) tokens for loss
+        dict: Dictionary containing:
+            - input_ids: Tokenized input sequences of shape (batch_size, model_max_length-1)
+            - labels: Target sequences of shape (batch_size, model_max_length-1)
+            - label_token_weights: Weight mask for loss computation of shape (batch_size, model_max_length-1)
+            
+    Note:
+        input_ids format: <de_tokens> + <de_eos> + <en_tokens> + <en_eos> + <pad>
+        labels: Next tokens to predict (shifted by 1)
+        label_token_weights: 0 for source tokens, 1 for target tokens
     """
     token_ids, tgt_token_mask = [], []
     max_length = model_max_length
@@ -157,14 +161,14 @@ def collate_batch(
 
 def loss_fn(batch, model):
     """
-    The MLE loss for a batch.
-
-    Parameters:
-    - batch: The result of collate_fn, a dict with "input_ids", "labels", and "label_token_weights".
-    - model: The model to be trained.
+    Compute MLE loss for a batch of examples.
+    
+    Args:
+        batch (dict): Batch data containing 'input_ids', 'labels', 'label_token_weights'
+        model (DecoderLM): Language model for prediction
 
     Returns:
-    - A scalar loss value for this batch, averaged across all target tokens.
+        Tensor: Average loss across all target tokens
     """
 
     idx = batch['input_ids']
@@ -191,16 +195,16 @@ def loss_fn(batch, model):
 
 def train(model, optimizer, examples, n_samples, collate_fn, batch_size, desc):
     """
-    Trains the model on the provided examples.
-
-    Parameters:
-    - model: The model to be trained.
-    - optimizer: The optimizer used for updating the model's parameters.
-    - examples: The dataset examples used for training.
-    - n_samples: The random samples to train from "examples".
-    - collate_fn: The function to collate data examples into batches.
-    - batch_size: The number of examples in each batch.
-    - desc: Description for the training process (used in progress bars).
+    Train the model on provided examples.
+    
+    Args:
+        model (DecoderLM): Model to train
+        optimizer (Adam): Optimizer for parameter updates
+        examples (list): Training dataset examples
+        n_samples (int): Number of random samples to use
+        collate_fn (callable): Function to collate examples into batches
+        batch_size (int): Number of examples per batch
+        desc (str): Description for progress bar
     """
     model.train()
     random.shuffle(examples)
@@ -234,17 +238,17 @@ def train(model, optimizer, examples, n_samples, collate_fn, batch_size, desc):
 
 def evaluate_loss(model, examples, batch_size, collate_fn, desc):
     """
-    Evaluates the model on the provided examples and computes the average loss.
-
-    Parameters:
-    - model: The model to be evaluated.
-    - examples: The dataset examples used for evaluation.
-    - batch_size: The number of examples in each batch.
-    - collate_fn: The function to collate data examples into batches.
-    - desc: Description for the evaluation process (used in progress bars).
+    Evaluate model loss on provided examples.
+    
+    Args:
+        model (DecoderLM): Model to evaluate
+        examples (list): Evaluation dataset examples
+        batch_size (int): Number of examples per batch
+        collate_fn (callable): Function to collate examples into batches
+        desc (str): Description for progress bar
 
     Returns:
-    - The average loss computed over all batches.
+        float: Average loss across all batches
     """
     model.eval()
     losses = []
@@ -260,30 +264,31 @@ def evaluate_loss(model, examples, batch_size, collate_fn, desc):
     return np.mean(losses)
 
 
-def generate(model,
-             examples,
-             src_key,
-             tgt_key,
-             tokenizer,
-             model_max_length,
-             backend,
-             desc):
+def generate(
+    model,
+    examples,
+    src_key,
+    tgt_key,
+    tokenizer,
+    model_max_length,
+    backend,
+    desc
+):
     """
-    Generates target sequences for the given source sequences using the model, based on argmax decoding.
-    Note that it runs generation on examples one-by-one instead of in a batched manner.
-
-    Parameters:
-    - model: The model used for generation.
-    - examples: The dataset examples containing source sequences.
-    - src_key: The key for accessing source texts in the examples.
-    - tgt_key: The key for accessing target texts in the examples.
-    - tokenizer: The tokenizer used for encoding texts.
-    - model_max_length: The maximum sequence length the model can handle.
-    - backend: The backend of minitorch tensors.
-    - desc: Description for the generation process (used in progress bars).
+    Generate target sequences for source sequences using argmax decoding.
+    
+    Args:
+        model (DecoderLM): Model for generation
+        examples (list): Dataset examples containing source sequences
+        src_key (str): Key for source texts in examples
+        tgt_key (str): Key for target texts in examples
+        tokenizer (AutoTokenizer): Tokenizer for encoding/decoding
+        model_max_length (int): Maximum sequence length
+        backend (TensorBackend): Backend for minitorch tensors
+        desc (str): Description for progress bar
 
     Returns:
-    - A list of generated target sequences.
+        list: Generated target sequences
     """
 
     model.eval()
@@ -295,13 +300,13 @@ def generate(model,
         len_src = len(token_ids)
 
         while len(token_ids) <= model_max_length:
-            # BEGIN ASSIGN2_2
+            # BEGIN ASSIGN3_4
             # TODO
             # run the model with current token_ids, and predict the next token (gen_id)
             # hint: obtain the logits of next token, and take the argmax.
             gen_id = 0
             raise NotImplementedError("Generation Function Not Implemented Yet")
-            # END ASSIGN2_2
+            # END ASSIGN3_4
 
             if gen_id == tokenizer.vocab[f'<eos_{tgt_key}>']:
                 break
@@ -315,15 +320,15 @@ def generate(model,
 
 def evaluate_bleu(examples, gen_sents, tgt_key):
     """
-    Evaluates the BLEU score for generated sentences against the target sentences in the examples.
-
-    Parameters:
-    - examples: The dataset examples used for evaluation.
-    - gen_sents: The generated sentences to be evaluated.
-    - tgt_key: The key for accessing target texts in the examples.
+    Evaluate BLEU score for generated sentences against target sentences.
+    
+    Args:
+        examples (list): Dataset examples containing target sentences
+        gen_sents (list): Generated sentences to evaluate
+        tgt_key (str): Key for target texts in examples
 
     Returns:
-    - A dictionary containing the BLEU score.
+        dict: Dictionary containing BLEU score
     """
     return {
         'bleu': BLEU().corpus_score(
@@ -332,28 +337,30 @@ def evaluate_bleu(examples, gen_sents, tgt_key):
     }
 
 
-def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
-         model_max_length=40,
-         n_epochs=20,
-         batch_size=128,
-         learning_rate=0.02,
-         samples_per_epoch=20000,
-         n_vocab=10000,
-         n_embd=256,
-         seed=11111):
+def main(
+    dataset_name='bbaaaa/iwslt14-de-en-preprocess',
+    model_max_length=40,
+    n_epochs=20,
+    batch_size=128,
+    learning_rate=0.02,
+    samples_per_epoch=20000,
+    n_vocab=10000,
+    n_embd=256,
+    seed=11111
+):
     """
-    The main function to train and evaluate the model on a specified dataset.
-
-    Parameters:
-    - dataset_name: The name of the dataset to be used.
-    - model_max_length: The maximum sequence length the model can handle.
-    - n_epochs: The number of training epochs.
-    - batch_size: The number of examples in each batch.
-    - learning_rate: The learning rate for the optimizer.
-    - samples_per_epoch: Samples from the training dataset every epoch.
-    - n_vocab: The vocabulary size of the BPE tokenizer.
-    - n_embd: The embedding dimension.
-    - seed: Random seed.
+    Train and evaluate a decoder-only transformer language model.
+    
+    Args:
+        dataset_name (str): Name of the dataset to use, default 'bbaaaa/iwslt14-de-en-preprocess'
+        model_max_length (int): Maximum sequence length, default 40
+        n_epochs (int): Number of training epochs, default 20
+        batch_size (int): Number of examples per batch, default 128
+        learning_rate (float): Learning rate for optimizer, default 0.02
+        samples_per_epoch (int): Training samples per epoch, default 20000
+        n_vocab (int): Vocabulary size for tokenizer, default 10000
+        n_embd (int): Embedding dimension, default 256
+        seed (int): Random seed, default 11111
     """
 
     np.random.seed(seed)
