@@ -32,9 +32,9 @@ class Embedding(Module):
         self.backend = backend
         self.num_embeddings = num_embeddings # Vocab size
         self.embedding_dim  = embedding_dim  # Embedding Dimension
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN ASSIGN3_2
         raise NotImplementedError
-        ### END YOUR SOLUTION
+        ### END ASSIGN3_2
     
     def forward(self, x: Tensor):
         """Maps word indices to one-hot vectors, and projects to embedding vectors.
@@ -46,9 +46,9 @@ class Embedding(Module):
             output : Tensor of shape (batch_size, seq_len, embedding_dim)
         """
         bs, seq_len = x.shape
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN ASSIGN3_2
         raise NotImplementedError
-        ### END YOUR SOLUTION
+        ### END ASSIGN3_2
 
     
 class Dropout(Module):
@@ -70,9 +70,9 @@ class Dropout(Module):
         Returns: 
             output : Tensor of shape (*)
         """
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN ASSIGN3_2
         raise NotImplementedError
-        ### END YOUR SOLUTION
+        ### END ASSIGN3_2
 
 
 class Linear(Module):
@@ -90,9 +90,9 @@ class Linear(Module):
             bias   - The learnable weights of shape (out_size, ) initialized from Uniform(-1/sqrt(in_size), 1/sqrt(in_size)).
         """
         self.out_size = out_size
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN ASSIGN3_2
         raise NotImplementedError
-        ### END YOUR SOLUTION
+        ### END ASSIGN3_2
 
     def forward(self, x: Tensor):
         """Applies a linear transformation to the incoming data.
@@ -104,9 +104,9 @@ class Linear(Module):
             output : Tensor of shape (n, out_size)
         """
         batch, in_size = x.shape
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN ASSIGN3_2
         raise NotImplementedError
-        ### END YOUR SOLUTION
+        ### END ASSIGN3_2
 
 
 class LayerNorm1d(Module):
@@ -124,9 +124,9 @@ class LayerNorm1d(Module):
         """
         self.dim = dim
         self.eps = eps
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN ASSIGN3_2
         raise NotImplementedError
-        ### END YOUR SOLUTION
+        ### END ASSIGN3_2
 
     def forward(self, x: Tensor) -> Tensor:
         """Applies Layer Normalization over a mini-batch of inputs. 
@@ -140,6 +140,6 @@ class LayerNorm1d(Module):
             output - Tensor of shape (bs, dim)
         """
         batch, dim = x.shape
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN ASSIGN3_2
         raise NotImplementedError
-        ### END YOUR SOLUTION
+        ### END ASSIGN3_2

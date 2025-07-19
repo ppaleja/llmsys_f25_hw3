@@ -227,7 +227,7 @@ def softmax_loss(logits: Tensor, target: Tensor) -> Tensor:
         loss : (minibatch, )
     """
     result = None
-    ### BEGIN ASSIGN3_2
+    ### BEGIN ASSIGN3_1
     raise NotImplementedError
-    ### END ASSIGN3_2
+    ### END ASSIGN3_1
     return result.view(batch_size, )
