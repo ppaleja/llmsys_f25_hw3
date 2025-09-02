@@ -63,13 +63,8 @@ nvidia-smi
 ```
 
 ##### 3. Install PyTorch for CUDA 12.1
-Try **pip** first:
 ```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-or with **Conda**:
-```bash
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 ```
 
 ##### 4. Verify Installation
