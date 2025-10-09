@@ -1,5 +1,5 @@
 colorama==0.4.3
-hypothesis == 6.54
+hypothesis
 mypy == 0.971
 numba
 numpy == 1.23.5
