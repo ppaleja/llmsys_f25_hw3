@@ -33,7 +33,7 @@ class Embedding(Module):
         self.num_embeddings = num_embeddings # Vocab size
         self.embedding_dim  = embedding_dim  # Embedding Dimension
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
+        self.weights: Parameter = Parameter(rand(shape=(num_embeddings, embedding_dim), backend=backend, requires_grad=True))
         ### END ASSIGN3_2
     
     def forward(self, x: Tensor):
@@ -47,7 +47,15 @@ class Embedding(Module):
         """
         bs, seq_len = x.shape
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
+        # Map word indices to one-hot vectors
+        one_hot_vectors: Tensor = one_hot(x, self.num_embeddings)  # Shape: (batch_size, seq_len, num_embeddings)
+        # Project to embedding vectors
+        output: Tensor = one_hot_vectors @ self.weights.value  # Shape: (batch_size, seq_len, embedding_dim)
+        # output = self.backend.matrix_multiply(one_hot_vectors, self.weights.value)
+        # Verify output shape
+        assert output.shape == (bs, seq_len, self.embedding_dim), f"Expected output shape {(bs, seq_len, self.embedding_dim)}, but got {output.shape}"
+        return output
+        
         ### END ASSIGN3_2
 
     
@@ -71,7 +79,6 @@ class Dropout(Module):
             output : Tensor of shape (*)
         """
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
         ### END ASSIGN3_2
 
 
