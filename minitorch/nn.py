@@ -238,6 +238,6 @@ def softmax_loss(logits: Tensor, target: Tensor) -> Tensor:
     # Hint: You should utilize a combination of:
     # logsumexp, one_hot, and other tensor functions to compute this efficiently. 
     # (Our solution is only 3 lines long.)
-    result = logsumexp(logits, dim=1) - one_hot(target, num_classes=num_classes).sum(dim=1)
+    result = logsumexp(logits, dim=1) - (one_hot(target, num_classes=num_classes) * logits).sum(dim=1)
     ### END ASSIGN3_1
     return result.view(batch_size, )
