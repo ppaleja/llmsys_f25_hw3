@@ -79,6 +79,9 @@ class Dropout(Module):
             output : Tensor of shape (*)
         """
         ### BEGIN ASSIGN3_2
+        mask = self.backend.rand(x.shape) > self.p_dropout # Populates a mask with True/False based on p_dropout
+        output = x * mask / (1 - self.p_dropout) 
+        return output
         ### END ASSIGN3_2
 
 
