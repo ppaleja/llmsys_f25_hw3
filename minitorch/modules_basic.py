@@ -33,13 +33,11 @@ class Embedding(Module):
         Attributes:
             weight : The learnable weights of shape (num_embeddings, embedding_dim) initialized from N(0, 1).
         """
-        raise NotImplementedError
 
         self.backend = backend
         self.num_embeddings = num_embeddings # Vocab size
         self.embedding_dim  = embedding_dim  # Embedding Dimension
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
 
         self.weights: Parameter = RParam(num_embeddings, embedding_dim, backend=backend)
         ### END ASSIGN3_2
@@ -55,13 +53,15 @@ class Embedding(Module):
         """
         bs, seq_len = x.shape
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
 
         # Map word indices to one-hot vectors
         one_hot_vectors: Tensor = one_hot(x, self.num_embeddings)  # Shape: (batch_size, seq_len, num_embeddings)
+        # Flatten to (batch_size * seq_len, num_embeddings) for matrix multiplication
+        one_hot_flat = one_hot_vectors.view(bs * seq_len, self.num_embeddings)
         # Project to embedding vectors
-        output: Tensor = one_hot_vectors @ self.weights.value  # Shape: (batch_size, seq_len, embedding_dim)
-        # output = self.backend.matrix_multiply(one_hot_vectors, self.weights.value)
+        output_flat = one_hot_flat @ self.weights.value  # Shape: (batch_size * seq_len, embedding_dim)
+        # Reshape back to (batch_size, seq_len, embedding_dim)
+        output = output_flat.view(bs, seq_len, self.embedding_dim)
         # Verify output shape
         assert output.shape == (bs, seq_len, self.embedding_dim), f"Expected output shape {(bs, seq_len, self.embedding_dim)}, but got {output.shape}"
         return output
