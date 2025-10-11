@@ -70,6 +70,11 @@ class Embedding(Module):
 
     
 class Dropout(Module):
+    """
+    **Note**: 
+    If the flag `self.training` is false, do not zero out any values in the input tensor. 
+    To match the autograder seed, please use `np.random.binomial` to generate a mask.
+    """
     def __init__(self, p_dropout: float=0.1):
         super().__init__()
         """During training, randomly zeroes some of the elements of the input tensor with probability :attr:`p_dropout`.
@@ -89,10 +94,11 @@ class Dropout(Module):
             output : Tensor of shape (*)
         """
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
+        if not self.training or self.p_dropout == 0:
+            return x
 
-        mask = self.backend.rand(x.shape) > self.p_dropout # Populates a mask with True/False based on p_dropout
-        output = x * mask / (1 - self.p_dropout) 
+        mask = tensor_from_numpy(np.random.binomial(1, 1 - self.p_dropout, size=x.shape), backend=x.backend)
+        output = x * mask / (1 - self.p_dropout)
         return output
         ### END ASSIGN3_2
 
