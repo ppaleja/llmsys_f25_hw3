@@ -15,6 +15,10 @@ from .tensor import Tensor
 
 from typing import Any, Dict, Optional, Sequence, Tuple
 
+def RParam(*shape, backend: TensorBackend):
+    r = 0.1 * (rand(shape, backend=backend) - 0.5)
+    return Parameter(r)
+
 
 class Embedding(Module):
     def __init__(self, num_embeddings: int, embedding_dim: int, backend: TensorBackend):
@@ -29,11 +33,15 @@ class Embedding(Module):
         Attributes:
             weight : The learnable weights of shape (num_embeddings, embedding_dim) initialized from N(0, 1).
         """
+        raise NotImplementedError
+
         self.backend = backend
         self.num_embeddings = num_embeddings # Vocab size
         self.embedding_dim  = embedding_dim  # Embedding Dimension
         ### BEGIN ASSIGN3_2
-        self.weights: Parameter = Parameter(rand(shape=(num_embeddings, embedding_dim), backend=backend, requires_grad=True))
+        raise NotImplementedError
+
+        self.weights: Parameter = RParam(num_embeddings, embedding_dim, backend=backend)
         ### END ASSIGN3_2
     
     def forward(self, x: Tensor):
@@ -47,6 +55,8 @@ class Embedding(Module):
         """
         bs, seq_len = x.shape
         ### BEGIN ASSIGN3_2
+        raise NotImplementedError
+
         # Map word indices to one-hot vectors
         one_hot_vectors: Tensor = one_hot(x, self.num_embeddings)  # Shape: (batch_size, seq_len, num_embeddings)
         # Project to embedding vectors
@@ -79,6 +89,8 @@ class Dropout(Module):
             output : Tensor of shape (*)
         """
         ### BEGIN ASSIGN3_2
+        raise NotImplementedError
+
         mask = self.backend.rand(x.shape) > self.p_dropout # Populates a mask with True/False based on p_dropout
         output = x * mask / (1 - self.p_dropout) 
         return output
@@ -101,7 +113,8 @@ class Linear(Module):
         """
         self.out_size = out_size
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
+        self.weights = RParam(in_size, out_size, backend=backend)
+        self.bias = RParam(out_size, backend=backend) if bias else Parameter(zeros((out_size,), backend=backend))
         ### END ASSIGN3_2
 
     def forward(self, x: Tensor):
@@ -115,7 +128,15 @@ class Linear(Module):
         """
         batch, in_size = x.shape
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
+        # Reshape input x to be of size (batch, in_size)
+        x = x.view(batch, in_size)
+        # Reshape weights to be of size (in_size, out_size)
+        weights: Tensor = self.weights.value.view(in_size, self.out_size)
+
+        # Apply Matrix Multiplication on input x and self.weights, and reshape the output to be of shape (batch, self.out_size)
+        out: Tensor = (x @ weights).view(batch, self.out_size)
+        # Add bias
+        return out + self.bias.value
         ### END ASSIGN3_2
 
 
