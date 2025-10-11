@@ -199,31 +199,45 @@ __global__ void MatrixMultiplyKernel(
     int row = blockIdx.y * TILE + threadIdx.y;
     int col = blockIdx.x * TILE + threadIdx.x;
 
-
-    if (row >= out_shape[1] || col >= out_shape[2]) return;
-    // 2. Compute the position in the output array that this thread will write to
-    int out_pos = index_to_position((int[]){batch, row, col}, out_strides, 3);
-    
-
     // 3. Iterate over tiles of the two input matrices, read the data into shared memory
     float acc = 0.0;
-    for(int t = 0; t < (a_shape[2]/TILE); t++) {
-      a_shared[threadIdx.y][threadIdx.x] = a_storage[index_to_position((int[]){0, row, t * TILE + threadIdx.x}, a_strides, 3) + a_batch_stride * batch];
-      b_shared[threadIdx.y][threadIdx.x] = b_storage[index_to_position((int[]){0, t * TILE + threadIdx.y, col}, b_strides, 3) + b_batch_stride * batch];
+    int numTiles = (a_shape[2] + TILE - 1) / TILE;  // compute number of tiles
+    for (int t = 0; t < numTiles; t++) {
+      int a_col = t * TILE + threadIdx.x;
+      int b_row = t * TILE + threadIdx.y;
       
+      // Load tile from matrix A with bounds check and batch offset
+      if (row < a_shape[1] && a_col < a_shape[2]) {
+        a_shared[threadIdx.y][threadIdx.x] = a_storage[index_to_position((int[]){0, row, a_col}, a_strides, 3) + a_batch_stride * batch];
+      } else {
+        a_shared[threadIdx.y][threadIdx.x] = 0.0;
+      }
+      
+      // Load tile from matrix B with bounds check and batch offset
+      if (b_row < b_shape[1] && col < b_shape[2]) {
+        b_shared[threadIdx.y][threadIdx.x] = b_storage[index_to_position((int[]){0, b_row, col}, b_strides, 3) + b_batch_stride * batch];
+      } else {
+        b_shared[threadIdx.y][threadIdx.x] = 0.0;
+      }
+
       // 4. Synchronize to make sure the data is available to all threads
       __syncthreads();
 
       // 5. Compute the output tile for this thread block
-
-      for(int s = 0; s < TILE; s++) {
-        acc += a_shared[threadIdx.y][s] * b_shared[s][threadIdx.x];
+      if (row < out_shape[1] && col < out_shape[2]) {
+        for (int s = 0; s < TILE; s++) {
+          acc += a_shared[threadIdx.y][s] * b_shared[s][threadIdx.x];
+        }
       }
-
+      
       // 6. Synchronize to make sure all threads are done computing the output tile for (row, col)
       __syncthreads();
-
-      // 7. Write the output to global memory
+    }
+    
+    // 7. Write the output to global memory (after all tiles have been processed)
+    // 2. Compute the position in the output array that this thread will write to
+    if (row < out_shape[1] && col < out_shape[2]) {
+      int out_pos = index_to_position((int[]){batch, row, col}, out_strides, 3);
       out[out_pos] = acc;
     }
     /// END ASSIGN2_4
@@ -499,7 +513,7 @@ void MatrixMultiply(
 
     int threadsPerBlock = BASE_THREAD_NUM;
     dim3 blockDims(threadsPerBlock, threadsPerBlock, 1); // Adjust these values based on your specific requirements
-    dim3 gridDims((m + threadsPerBlock - 1) / threadsPerBlock, (p + threadsPerBlock - 1) / threadsPerBlock, batch);
+    dim3 gridDims((out_shape[2] + threadsPerBlock - 1) / threadsPerBlock, (out_shape[1] + threadsPerBlock - 1) / threadsPerBlock, batch);
     MatrixMultiplyKernel<<<gridDims, blockDims>>>(
         d_out, d_out_shape, d_out_strides, d_a, d_a_shape, d_a_strides, d_b, d_b_shape, d_b_strides
     );
