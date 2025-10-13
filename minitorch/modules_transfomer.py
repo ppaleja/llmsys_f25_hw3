@@ -140,7 +140,7 @@ class MultiHeadAttention(Module):
         # Step 1: Compute raw attention scores
         attn_scores = (q @ kT) / np.sqrt(self.attn_hidden_dim)
         # Step 2: Apply causal mask
-        attn_scores = attn_scores + causal
+        attn_scores = attn_scores + causal_mask
         # Step 3: Apply softmax along the sequence dimension
         attn_weights = softmax(attn_scores, dim=3)
         # Step 4: Multiply by values
