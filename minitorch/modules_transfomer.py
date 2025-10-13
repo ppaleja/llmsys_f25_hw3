@@ -93,9 +93,21 @@ class MultiHeadAttention(Module):
         """
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN ASSIGN3_3
+        # 1. Project input x to Q, K, V using respective linear layers
+        q_full = self.q_projection(x)  # Shape: (batch_size, seq_len, n_embd)
+        k_full = self.k_projection(x)  # Shape: (batch_size, seq_len, n_embd)
+        v_full = self.v_projection(x)  # Shape: (batch_size, seq_len, n_embd)
         
+        # 2. Reshape to (batch_size, seq_len, n_head, attn_hidden_dim)
+        # and then transpose to (batch_size, n_head, seq_len, attn_hidden_dim)
+        q = q_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).transpose(1, 2)
+        k = k_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).transpose(1, 2)
+        v = v_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).transpose(1, 2)
         
+        # 3. Transpose keys to shape (batch_size, n_head, attn_hidden_dim, seq_len)
+        kT = k.transpose(2, 3)
         ### END ASSIGN3_3
+        
         return q, kT, v
     
     def self_attention(self, q, kT, v):
