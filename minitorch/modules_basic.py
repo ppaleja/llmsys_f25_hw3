@@ -8,7 +8,7 @@ Embedding
 import numpy as np
 
 from .module import Module, Parameter
-from .tensor_functions import (zeros, ones, rand, tensor, tensor_from_numpy, zeros_tensor_from_numpy, ones_tensor_from_numpy)
+from .tensor_functions import (PowerScalar, zeros, ones, rand, tensor, tensor_from_numpy, zeros_tensor_from_numpy, ones_tensor_from_numpy)
 from .nn import one_hot
 from .tensor_ops import TensorBackend
 from .tensor import Tensor
@@ -162,7 +162,8 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
+        self.weights = Parameter(ones((dim,), backend=backend))
+        self.bias = Parameter(zeros((dim,), backend=backend))
         ### END ASSIGN3_2
 
     def forward(self, x: Tensor) -> Tensor:
@@ -178,5 +179,9 @@ class LayerNorm1d(Module):
         """
         batch, dim = x.shape
         ### BEGIN ASSIGN3_2
-        raise NotImplementedError
+        mean = x.sum(1) / dim
+        std = ((x - mean.view(batch, 1))**2).sum(1) / dim
+        
+        x_normalized = (x - mean.view(batch, 1)) / ((std + self.eps) ** 0.5).view(batch, 1)
+        return self.weights.value * x_normalized + self.bias.value
         ### END ASSIGN3_2
