@@ -132,9 +132,13 @@ class MultiHeadAttention(Module):
         result = None
         
         ### BEGIN ASSIGN3_3
-        causal = self.create_causal_mask(queries_len) if self.causal else minitorch.zeros((1, 1, queries_len, queries_len), backend=self.backend)
+        if self.causal:
+            causal_mask = self.create_causal_mask(queries_len)
+        else:
+            causal_mask = minitorch.zeros((1, 1, queries_len, queries_len), backend=self.backend)
+        attn_scores = (q @ kT) / np.sqrt(self.attn_hidden_dim) + causal_mask
         A = softmax(
-            (q @ kT) / np.sqrt(self.attn_hidden_dim) + causal,
+            attn_scores,
             dim=3
         ) @ v # Shape: (batch_size, num_heads, seq_len, attn_hidden_dim)
         
