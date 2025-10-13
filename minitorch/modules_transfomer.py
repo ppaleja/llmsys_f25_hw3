@@ -1,4 +1,6 @@
 import numpy as np
+
+import minitorch
 from .tensor import tensor, tensor_from_numpy
 from .module import Module, Parameter
 from .modules_basic import (
@@ -17,6 +19,10 @@ from .nn import (
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 datatype = np.float32
+
+def RParam(*shape, backend: TensorBackend=None):
+    r = 0.1 * (minitorch.rand(shape, backend=backend) - 0.5)
+    return minitorch.Parameter(r)
 
 
 class MultiHeadAttention(Module):
@@ -45,12 +51,12 @@ class MultiHeadAttention(Module):
         self.attn_hidden_dim = n_embd // n_head
 
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
-        # self.q_projection = 
-        # self.k_projection = 
-        # self.v_projection = 
-        # self.out_projection = 
-        # self.dropout = 
+        ### BEGIN ASSIGN3_3
+        self.q_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.k_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.v_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.out_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.dropout = Dropout(p_dropout)
         ### END ASSIGN3_3
 
     def create_causal_mask(self, seq_len):
@@ -87,7 +93,8 @@ class MultiHeadAttention(Module):
         """
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
+        
+        
         ### END ASSIGN3_3
         return q, kT, v
     
