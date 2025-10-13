@@ -93,19 +93,22 @@ class MultiHeadAttention(Module):
         """
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN ASSIGN3_3
-        # 1. Project input x to Q, K, V using respective linear layers
-        q_full = self.q_projection(x)  # Shape: (batch_size, seq_len, n_embd)
-        k_full = self.k_projection(x)  # Shape: (batch_size, seq_len, n_embd)
-        v_full = self.v_projection(x)  # Shape: (batch_size, seq_len, n_embd)
+        # 1. Reshape x to 2D for linear layers: (batch_size * seq_len, n_embd)
+        x_2d = x.view(batch_size * seq_len, n_embd)
         
-        # 2. Reshape to (batch_size, seq_len, n_head, attn_hidden_dim)
+        # 2. Project input x to Q, K, V using respective linear layers
+        q_full = self.q_projection(x_2d).view(batch_size, seq_len, n_embd)  # Shape: (batch_size, seq_len, n_embd)
+        k_full = self.k_projection(x_2d).view(batch_size, seq_len, n_embd)  # Shape: (batch_size, seq_len, n_embd)
+        v_full = self.v_projection(x_2d).view(batch_size, seq_len, n_embd)  # Shape: (batch_size, seq_len, n_embd)
+        
+        # 3. Reshape to (batch_size, seq_len, n_head, attn_hidden_dim)
         # and then transpose to (batch_size, n_head, seq_len, attn_hidden_dim)
-        q = q_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).transpose(1, 2)
-        k = k_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).transpose(1, 2)
-        v = v_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).transpose(1, 2)
+        q = q_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).permute(0, 2, 1, 3)
+        k = k_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).permute(0, 2, 1, 3)
+        v = v_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).permute(0, 2, 1, 3)
         
-        # 3. Transpose keys to shape (batch_size, n_head, attn_hidden_dim, seq_len)
-        kT = k.transpose(2, 3)
+        # 4. Transpose keys to shape (batch_size, n_head, attn_hidden_dim, seq_len)
+        kT = k.permute(0, 1, 3, 2)
         ### END ASSIGN3_3
         
         return q, kT, v
@@ -129,14 +132,13 @@ class MultiHeadAttention(Module):
         result = None
         
         ### BEGIN ASSIGN3_3
-        causal = self.causal_mask if self.causal else minitorch.zeros((1, 1, queries_len, queries_len), backend=self.backend)
+        causal = self.create_causal_mask(queries_len) if self.causal else minitorch.zeros((1, 1, queries_len, queries_len), backend=self.backend)
         A = softmax(
             (q @ kT) / np.sqrt(self.attn_hidden_dim) + causal,
-            dim=-1
+            dim=3
         ) @ v # Shape: (batch_size, num_heads, seq_len, attn_hidden_dim)
         
-        A = A.transpose(1, 2).contiguous().view(batch_size, queries_len, self.n_embd)  # Shape: (batch_size, seq_len, n_embd)
-        return A
+        result = A.permute(0, 2, 1, 3).contiguous().view(batch_size, queries_len, self.n_embd)  # Shape: (batch_size, seq_len, n_embd)
         ### END ASSIGN3_3
 
         return result
@@ -154,10 +156,14 @@ class MultiHeadAttention(Module):
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN ASSIGN3_3
         q, kT, v = self.project_to_query_key_value(x)
-        A = self.self_attention(q, kT, v)
-        result = self.out_projection(A)
+        A = self.self_attention(q, kT, v)  # Shape: (batch_size, seq_len, n_embd)
+        
+        # Reshape for linear layer: (batch_size * seq_len, n_embd)
+        A_2d = A.view(batch_size * seq_len, n_embd)
+        result = self.out_projection(A_2d).view(batch_size, seq_len, n_embd)
         result = self.dropout(result)
-
+        
+        return result
         ### END ASSIGN3_3
 
 
