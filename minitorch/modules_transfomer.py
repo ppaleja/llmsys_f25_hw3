@@ -240,10 +240,10 @@ class TransformerLayer(Module):
             ff (FeedForward): Feed-forward network layer
         """
         ### BEGIN ASSIGN3_3
-        self.ln_1 = LayerNorm1d(n_embd, eps=ln_eps, backend=backend)
-        self.ln_2 = LayerNorm1d(n_embd, eps=ln_eps, backend=backend)
-        self.attention = MultiHeadAttention(n_embd, n_head, True, p_dropout, backend=backend)
-        self.ff = FeedForward(n_embd, backend=backend)
+        self.ln_1 = LayerNorm1d(n_embd, ln_eps, backend)
+        self.ln_2 = LayerNorm1d(n_embd, ln_eps, backend)
+        self.attention = MultiHeadAttention(n_embd, n_head, True, p_dropout, bias, backend)
+        self.ff = FeedForward(n_embd, p_dropout=p_dropout, bias=bias, backend=backend)
         ### END ASSIGN3_3
 
     def forward(self, x):
@@ -258,7 +258,21 @@ class TransformerLayer(Module):
         """
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError
+        # Apply first layer normalization
+        x_norm1 = self.ln_1(x.view(batch_size * seq_len, n_embd)).view(batch_size, seq_len, n_embd) # Shape: (batch_size, seq_len, n_embd)
+        
+        # Apply multi-head attention
+        attn_out = self.attention(x_norm1)  # Shape: (batch_size, seq_len, n_embd)
+        x = x + attn_out  # Residual connection
+        
+        # Apply second layer normalization
+        x_norm2 = self.ln_2(x.view(batch_size * seq_len, n_embd)).view(batch_size, seq_len, n_embd) # Shape: (batch_size, seq_len, n_embd)
+        
+        # Apply feed-forward network
+        ff_out = self.ff(x_norm2)  # Shape: (batch_size, seq_len, n_embd)
+        x = x + ff_out  # Residual connection
+
+        return x
         ### END YOUR SOLUTION
 
 
