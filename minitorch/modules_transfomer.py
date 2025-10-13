@@ -137,10 +137,14 @@ class MultiHeadAttention(Module):
         else:
             causal_mask = minitorch.zeros((1, 1, queries_len, queries_len), backend=self.backend)
         attn_scores = (q @ kT) / np.sqrt(self.attn_hidden_dim) + causal_mask
-        A = softmax(
-            attn_scores,
-            dim=3
-        ) @ v # Shape: (batch_size, num_heads, seq_len, attn_hidden_dim)
+        # Step 1: Compute raw attention scores
+        attn_scores = (q @ kT) / np.sqrt(self.attn_hidden_dim)
+        # Step 2: Apply causal mask
+        attn_scores = attn_scores + causal
+        # Step 3: Apply softmax along the sequence dimension
+        attn_weights = softmax(attn_scores, dim=3)
+        # Step 4: Multiply by values
+        A = attn_weights @ v  # Shape: (batch_size, num_heads, seq_len, attn_hidden_dim)
         
         result = A.permute(0, 2, 1, 3).contiguous().view(batch_size, queries_len, self.n_embd)  # Shape: (batch_size, seq_len, n_embd)
         ### END ASSIGN3_3
