@@ -1,4 +1,6 @@
 import numpy as np
+
+import minitorch
 from .tensor import tensor, tensor_from_numpy
 from .module import Module, Parameter
 from .modules_basic import (
@@ -17,6 +19,10 @@ from .nn import (
 from typing import Any, Dict, Optional, Sequence, Tuple
 
 datatype = np.float32
+
+def RParam(*shape, backend: TensorBackend=None):
+    r = 0.1 * (minitorch.rand(shape, backend=backend) - 0.5)
+    return minitorch.Parameter(r)
 
 
 class MultiHeadAttention(Module):
@@ -45,12 +51,12 @@ class MultiHeadAttention(Module):
         self.attn_hidden_dim = n_embd // n_head
 
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
-        # self.q_projection = 
-        # self.k_projection = 
-        # self.v_projection = 
-        # self.out_projection = 
-        # self.dropout = 
+        ### BEGIN ASSIGN3_3
+        self.q_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.k_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.v_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.out_projection = Linear(n_embd, n_embd, bias=bias, backend=backend)
+        self.dropout = Dropout(p_dropout)
         ### END ASSIGN3_3
 
     def create_causal_mask(self, seq_len):
@@ -87,8 +93,24 @@ class MultiHeadAttention(Module):
         """
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
+        # 1. Reshape x to 2D for linear layers: (batch_size * seq_len, n_embd)
+        x_2d = x.view(batch_size * seq_len, n_embd)
+        
+        # 2. Project input x to Q, K, V using respective linear layers
+        q_full = self.q_projection(x_2d).view(batch_size, seq_len, n_embd)  # Shape: (batch_size, seq_len, n_embd)
+        k_full = self.k_projection(x_2d).view(batch_size, seq_len, n_embd)  # Shape: (batch_size, seq_len, n_embd)
+        v_full = self.v_projection(x_2d).view(batch_size, seq_len, n_embd)  # Shape: (batch_size, seq_len, n_embd)
+        
+        # 3. Reshape to (batch_size, seq_len, n_head, attn_hidden_dim)
+        # and then transpose to (batch_size, n_head, seq_len, attn_hidden_dim)
+        q = q_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).permute(0, 2, 1, 3)
+        k = k_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).permute(0, 2, 1, 3)
+        v = v_full.view(batch_size, seq_len, self.n_head, self.attn_hidden_dim).permute(0, 2, 1, 3)
+        
+        # 4. Transpose keys to shape (batch_size, n_head, attn_hidden_dim, seq_len)
+        kT = k.permute(0, 1, 3, 2)
         ### END ASSIGN3_3
+        
         return q, kT, v
     
     def self_attention(self, q, kT, v):
@@ -110,7 +132,21 @@ class MultiHeadAttention(Module):
         result = None
         
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
+        if self.causal:
+            causal_mask = self.create_causal_mask(queries_len)
+        else:
+            causal_mask = minitorch.zeros((1, 1, queries_len, queries_len), backend=self.backend)
+        attn_scores = (q @ kT) / np.sqrt(self.attn_hidden_dim) + causal_mask
+        # Step 1: Compute raw attention scores
+        attn_scores = (q @ kT) / np.sqrt(self.attn_hidden_dim)
+        # Step 2: Apply causal mask
+        attn_scores = attn_scores + causal
+        # Step 3: Apply softmax along the sequence dimension
+        attn_weights = softmax(attn_scores, dim=3)
+        # Step 4: Multiply by values
+        A = attn_weights @ v  # Shape: (batch_size, num_heads, seq_len, attn_hidden_dim)
+        
+        result = A.permute(0, 2, 1, 3).contiguous().view(batch_size, queries_len, self.n_embd)  # Shape: (batch_size, seq_len, n_embd)
         ### END ASSIGN3_3
 
         return result
@@ -127,7 +163,15 @@ class MultiHeadAttention(Module):
         """
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
+        q, kT, v = self.project_to_query_key_value(x)
+        A = self.self_attention(q, kT, v)  # Shape: (batch_size, seq_len, n_embd)
+        
+        # Reshape for linear layer: (batch_size * seq_len, n_embd)
+        A_2d = A.view(batch_size * seq_len, n_embd)
+        result = self.out_projection(A_2d).view(batch_size, seq_len, n_embd)
+        result = self.dropout(result)
+        
+        return result
         ### END ASSIGN3_3
 
 
