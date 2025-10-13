@@ -129,7 +129,14 @@ class MultiHeadAttention(Module):
         result = None
         
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
+        causal = self.causal_mask if self.causal else minitorch.zeros((1, 1, queries_len, queries_len), backend=self.backend)
+        A = softmax(
+            (q @ kT) / np.sqrt(self.attn_hidden_dim) + causal,
+            dim=-1
+        ) @ v # Shape: (batch_size, num_heads, seq_len, attn_hidden_dim)
+        
+        A = A.transpose(1, 2).contiguous().view(batch_size, queries_len, self.n_embd)  # Shape: (batch_size, seq_len, n_embd)
+        return A
         ### END ASSIGN3_3
 
         return result
@@ -146,7 +153,11 @@ class MultiHeadAttention(Module):
         """
         batch_size, seq_len, n_embd = x.shape
         ### BEGIN ASSIGN3_3
-        raise NotImplementedError
+        q, kT, v = self.project_to_query_key_value(x)
+        A = self.self_attention(q, kT, v)
+        result = self.out_projection(A)
+        result = self.dropout(result)
+
         ### END ASSIGN3_3
 
 
